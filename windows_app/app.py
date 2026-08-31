@@ -10,8 +10,8 @@ from urllib.request import Request, urlopen
 
 from backend_config import LICENCE_API_URL
 
-APP_NAME = "Saiko Licence Control"
-CONFIG_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SaikoLicenceControl"
+APP_NAME = "Inventory Licence Control"
+CONFIG_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "InventoryLicenceControl"
 CONFIG_FILE = CONFIG_DIR / "session.json"
 
 
@@ -45,7 +45,7 @@ class ApiClient:
 
     def request(self, method, path, payload=None):
         body = json.dumps(payload).encode("utf-8") if payload is not None else None
-        headers = {"Accept": "application/json", "User-Agent": "SaikoLicenceControl-Windows/1.0"}
+        headers = {"Accept": "application/json", "User-Agent": "InventoryLicenceControl-Windows/1.0"}
         if body is not None:
             headers["Content-Type"] = "application/json"
         if self.token:

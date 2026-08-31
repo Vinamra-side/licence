@@ -1,4 +1,4 @@
-name: Build Windows Licence App
+name: Build Inventory Licence Control
 
 on:
   workflow_dispatch:
@@ -31,13 +31,13 @@ jobs:
         working-directory: windows_app
         run: >-
           python -m PyInstaller --noconfirm --clean --onefile --windowed
-          --name SaikoLicenceControl
+          --name InventoryLicenceControl
           --icon assets/app-icon.ico
           --add-data "assets/app-icon.ico;assets"
           app.py
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
-          name: SaikoLicenceControl-Windows
-          path: windows_app/dist/SaikoLicenceControl.exe
+          name: InventoryLicenceControl-Windows
+          path: windows_app/dist/InventoryLicenceControl.exe
           if-no-files-found: error

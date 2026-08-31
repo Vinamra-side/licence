@@ -1,4 +1,4 @@
-# Saiko Licence Software
+# Inventory Licence Control
 
 Saiko Licence and Saiko Inventory are separate, interconnected software systems.
 
@@ -49,9 +49,9 @@ configured in inventory.
 1. In this GitHub repository, open **Settings → Secrets and variables → Actions
    → Variables**.
 2. Create `LICENCE_API_URL` with the final licence Vercel URL.
-3. Open **Actions → Build Windows Licence App → Run workflow**.
-4. Download the `SaikoLicenceControl-Windows` artifact.
-5. Extract `SaikoLicenceControl.exe` onto the dedicated Windows device.
+3. Open **Actions → Build Inventory Licence Control → Run workflow**.
+4. Download the `InventoryLicenceControl-Windows` artifact.
+5. Extract `InventoryLicenceControl.exe` onto the dedicated Windows device.
 
 The build inserts the service URL into the EXE. The user sees only owner username
 and password when signing in.

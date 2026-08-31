@@ -16,11 +16,4 @@ def _required_secret():
 
 class Config:
     SECRET_KEY = _required_secret()
-    SESSION_COOKIE_NAME = "saiko_license_owner"
-    SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = "Strict"
-    SESSION_COOKIE_SECURE = os.environ.get(
-        "SESSION_COOKIE_SECURE", "true" if os.environ.get("VERCEL") else "false"
-    ).lower() == "true"
-    PERMANENT_SESSION_LIFETIME = 3600
-    SEND_FILE_MAX_AGE_DEFAULT = 86400
+    OWNER_TOKEN_MAX_AGE = int(os.environ.get("OWNER_TOKEN_MAX_AGE", str(30 * 24 * 60 * 60)))

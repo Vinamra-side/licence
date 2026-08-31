@@ -7,3 +7,8 @@ license_new.txt
 __pycache__/
 *.py[cod]
 .DS_Store
+windows_app/.venv-build/
+windows_app/build/
+windows_app/dist/
+windows_app/*.spec
+windows_app/assets/app-icon.ico

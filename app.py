@@ -2,7 +2,8 @@ import os
 import secrets
 from functools import wraps
 
-from flask import Flask, abort, flash, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, jsonify, request
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import db
@@ -23,46 +24,66 @@ def create_app():
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
     app.teardown_appcontext(db.close_connection)
 
-    @app.context_processor
-    def inject_csrf_token():
-        def csrf_token():
-            token = session.get("csrf_token")
-            if not token:
-                token = secrets.token_urlsafe(32)
-                session["csrf_token"] = token
-            return token
-        return {"csrf_token": csrf_token}
-
-    @app.before_request
-    def protect_post_requests():
-        if request.method != "POST":
-            return None
-        expected = session.get("csrf_token", "")
-        supplied = request.form.get("csrf_token", "")
-        if not expected or not secrets.compare_digest(expected, supplied):
-            abort(400, description="Invalid or missing security token. Refresh and try again.")
-
     @app.after_request
     def security_headers(response):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
         response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Cache-Control", "no-store")
         response.headers.setdefault(
             "Content-Security-Policy",
-            "default-src 'self'; style-src 'self'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'",
+            "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
         )
         return response
+
+    @app.errorhandler(400)
+    def bad_request(error):
+        return jsonify(error=getattr(error, "description", "Invalid request.")), 400
+
+    @app.errorhandler(404)
+    def not_found(_error):
+        return jsonify(error="API endpoint not found."), 404
+
+    @app.errorhandler(405)
+    def method_not_allowed(_error):
+        return jsonify(error="Method not allowed."), 405
 
     register_routes(app)
     return app
 
 
-def owner_required(view):
+def _serializer():
+    from flask import current_app
+
+    return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="saiko-licence-owner-v1")
+
+
+def issue_owner_token():
+    return _serializer().dumps({"owner": True})
+
+
+def owner_api_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
-        if not session.get("owner_authenticated"):
-            return redirect(url_for("login"))
+        from flask import current_app
+
+        header = request.headers.get("Authorization", "")
+        if not header.startswith("Bearer "):
+            return jsonify(error="Owner authentication required."), 401
+        token = header.removeprefix("Bearer ").strip()
+        try:
+            payload = _serializer().loads(
+                token,
+                max_age=current_app.config["OWNER_TOKEN_MAX_AGE"],
+            )
+        except SignatureExpired:
+            return jsonify(error="Owner session expired. Sign in again."), 401
+        except BadSignature:
+            return jsonify(error="Invalid owner session. Sign in again."), 401
+        if payload.get("owner") is not True:
+            return jsonify(error="Invalid owner session."), 401
         return view(*args, **kwargs)
+
     return wrapped
 
 
@@ -70,7 +91,7 @@ def authenticate_owner(username, password, ip_address):
     expected_username = os.environ.get("LICENSE_ADMIN_USERNAME", "").strip()
     expected_password = os.environ.get("LICENSE_ADMIN_PASSWORD", "")
     if not expected_username or not expected_password:
-        raise RuntimeError("Fixed owner login credentials are not configured.")
+        raise RuntimeError("Fixed owner login credentials are not configured on Vercel.")
 
     username = (username or "").strip()
     ip_address = (ip_address or "unknown")[:64]
@@ -100,7 +121,10 @@ def authenticate_owner(username, password, ip_address):
             conn.commit()
             return False
 
-        cur.execute("DELETE FROM login_attempts WHERE username=%s AND ip_address=%s", (attempt_key, ip_address))
+        cur.execute(
+            "DELETE FROM login_attempts WHERE username=%s AND ip_address=%s",
+            (attempt_key, ip_address),
+        )
     conn.commit()
     return True
 
@@ -118,16 +142,24 @@ def get_dashboard():
             """
         )
         counts = cur.fetchone()
+    if status is None:
+        raise RuntimeError("The inventory database has not been initialized.")
     accounts = int(counts["accounts"])
     subscribers = int(counts["subscribers"])
     active = accounts + subscribers
     limit = int(status["max_users"])
-    return status, {
-        "active": active,
-        "accounts": accounts,
-        "subscribers": subscribers,
-        "limit": limit,
-        "remaining": max(0, limit - active),
+    return {
+        "is_active": bool(status["is_active"]),
+        "max_users": limit,
+        "note": status["note"] or "",
+        "updated_at": status["updated_at"].isoformat() if status["updated_at"] else None,
+        "seats": {
+            "active": active,
+            "accounts": accounts,
+            "subscribers": subscribers,
+            "limit": limit,
+            "remaining": max(0, limit - active),
+        },
     }
 
 
@@ -139,6 +171,8 @@ def update_license(is_active, max_users, note):
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT id FROM license_status WHERE id=1 FOR UPDATE")
+            if cur.fetchone() is None:
+                raise RuntimeError("The inventory database has not been initialized.")
             cur.execute(
                 """
                 SELECT
@@ -164,78 +198,69 @@ def update_license(is_active, max_users, note):
 
 
 def register_routes(app):
-    @app.route("/manifest.webmanifest")
-    def manifest():
-        return send_from_directory(
-            app.static_folder,
-            "manifest.webmanifest",
-            mimetype="application/manifest+json",
+    @app.get("/")
+    def index():
+        return jsonify(
+            service="Saiko Licence API",
+            status="online",
+            client="Use the Saiko Licence Control Windows application.",
         )
 
-    @app.route("/service-worker.js")
-    def service_worker():
-        response = send_from_directory(
-            app.static_folder,
-            "service-worker.js",
-            mimetype="application/javascript",
-        )
-        response.headers["Cache-Control"] = "no-cache"
-        response.headers["Service-Worker-Allowed"] = "/"
-        return response
+    @app.get("/api/health")
+    def health():
+        return jsonify(status="ok")
 
-    @app.route("/login", methods=["GET", "POST"])
+    @app.post("/api/login")
     def login():
-        if session.get("owner_authenticated"):
-            return redirect(url_for("control"))
-        if request.method == "POST":
-            try:
-                valid = authenticate_owner(
-                    request.form.get("username", ""),
-                    request.form.get("password", ""),
-                    request.access_route[0] if request.access_route else request.remote_addr,
-                )
-            except LoginRateLimitError as exc:
-                flash(str(exc), "error")
-                return render_template("login.html"), 429
-            except RuntimeError as exc:
-                flash(str(exc), "error")
-                return render_template("login.html"), 503
-            if valid:
-                session.clear()
-                session["owner_authenticated"] = True
-                session.permanent = True
-                return redirect(url_for("control"))
-            flash("Incorrect owner login ID or password.", "error")
-        return render_template("login.html")
+        data = request.get_json(silent=True) or {}
+        username = data.get("username", "")
+        password = data.get("password", "")
+        if not isinstance(username, str) or not isinstance(password, str):
+            return jsonify(error="Login ID and password must be text."), 400
+        try:
+            valid = authenticate_owner(
+                username[:80],
+                password[:512],
+                request.access_route[0] if request.access_route else request.remote_addr,
+            )
+        except LoginRateLimitError as exc:
+            return jsonify(error=str(exc)), 429
+        except RuntimeError as exc:
+            return jsonify(error=str(exc)), 503
+        if not valid:
+            return jsonify(error="Incorrect owner login ID or password."), 401
+        return jsonify(token=issue_owner_token())
 
-    @app.route("/logout", methods=["POST"])
-    def logout():
-        session.clear()
-        flash("Owner signed out.", "success")
-        return redirect(url_for("login"))
+    @app.get("/api/license")
+    @owner_api_required
+    def read_license():
+        try:
+            return jsonify(get_dashboard())
+        except RuntimeError as exc:
+            return jsonify(error=str(exc)), 503
 
-    @app.route("/", methods=["GET", "POST"])
-    @owner_required
-    def control():
-        if request.method == "POST":
-            try:
-                max_users = int(request.form.get("max_users", ""))
-                if max_users < 1:
-                    raise ValueError("Seat limit must be a whole number of at least 1.")
-                update_license(
-                    is_active=request.form.get("is_active") == "on",
-                    max_users=max_users,
-                    note=request.form.get("note"),
-                )
-                flash("Licence settings updated immediately.", "success")
-            except ValueError as exc:
-                flash(str(exc), "error")
-            return redirect(url_for("control"))
-        status, seats = get_dashboard()
-        return render_template("control.html", status=status, seats=seats)
+    @app.put("/api/license")
+    @owner_api_required
+    def write_license():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify(error="A JSON request body is required."), 400
+        is_active = data.get("is_active")
+        max_users = data.get("max_users")
+        note = data.get("note", "")
+        if not isinstance(is_active, bool):
+            return jsonify(error="is_active must be true or false."), 400
+        if isinstance(max_users, bool) or not isinstance(max_users, int) or max_users < 1:
+            return jsonify(error="Seat limit must be a whole number of at least 1."), 400
+        if not isinstance(note, str):
+            return jsonify(error="Inactive message must be text."), 400
+        try:
+            update_license(is_active, max_users, note)
+            return jsonify(message="Licence settings updated.", license=get_dashboard())
+        except ValueError as exc:
+            return jsonify(error=str(exc)), 400
+        except RuntimeError as exc:
+            return jsonify(error=str(exc)), 503
 
 
 app = create_app()
-
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5002)

@@ -8,9 +8,9 @@ from tkinter import messagebox, ttk
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from backend_config import LICENCE_API_URL
 
 APP_NAME = "Saiko Licence Control"
-INVENTORY_API_URL = "https://saiko-inventory.vercel.app"
 CONFIG_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SaikoLicenceControl"
 CONFIG_FILE = CONFIG_DIR / "session.json"
 
@@ -151,11 +151,11 @@ class LicenceApp:
             return
         self.login_button.state(["disabled"])
         self.login_status.configure(text="Signing in…")
-        client = ApiClient(INVENTORY_API_URL)
+        client = ApiClient(LICENCE_API_URL)
 
         def task():
             return client.request(
-                "POST", "/api/license-owner/login", {"username": username, "password": password}
+                "POST", "/api/login", {"username": username, "password": password}
             )
 
         def success(data):
@@ -172,7 +172,7 @@ class LicenceApp:
 
     def show_control(self):
         self.clear()
-        self.client = ApiClient(INVENTORY_API_URL, self.settings["token"])
+        self.client = ApiClient(LICENCE_API_URL, self.settings["token"])
         card = self.card()
         header = ttk.Frame(card, style="Card.TFrame")
         header.pack(fill="x")
@@ -211,7 +211,7 @@ class LicenceApp:
             self.action_status.configure(text="Licence is up to date.")
 
         self.run_async(
-            lambda: self.client.request("GET", "/api/license-owner/license"),
+            lambda: self.client.request("GET", "/api/license"),
             success,
             lambda: self.refresh_button.state(["!disabled"]),
         )
@@ -247,7 +247,7 @@ class LicenceApp:
             self.action_status.configure(text="Licence settings saved immediately.")
 
         self.run_async(
-            lambda: self.client.request("PUT", "/api/license-owner/license", payload),
+            lambda: self.client.request("PUT", "/api/license", payload),
             success,
             lambda: self.save_button.state(["!disabled"]),
         )

@@ -1,55 +1,69 @@
-# Saiko Licence Control for Windows
+# Saiko Licence Software
 
-This repository contains only the native Windows licence application. It has no
-Flask/Vercel backend, no Neon integration, no database connection string, and no
-browser interface.
-
-The application connects directly to the secured licence API built into:
+Saiko Licence and Saiko Inventory are separate, interconnected software systems.
 
 ```text
-https://saiko-inventory.vercel.app
+Windows Licence App
+        ↓ owner username/password
+Saiko Licence Service on Vercel (this repository, no Neon)
+        ↓ private integration key
+Saiko Inventory on Vercel
+        ↓
+Inventory's Neon database
 ```
 
-Its login screen asks for only one fixed owner username and password. Those two
-values are configured in the inventory Vercel project as
-`LICENSE_ADMIN_USERNAME` and `LICENSE_ADMIN_PASSWORD`. The password is never
-stored by the Windows application.
+The licence service never connects to Neon and contains no inventory database
+credentials. The Windows application shows only username and password fields.
 
-## Build the native Windows EXE with GitHub
+## Deploy this licence service separately
 
-1. Open this repository on GitHub.
-2. Open **Actions → Build Windows Licence App**.
-3. Choose **Run workflow**.
-4. Open the completed run.
-5. Download the `SaikoLicenceControl-Windows` artifact.
-6. Extract `SaikoLicenceControl.exe` onto the dedicated Windows computer.
-
-## Build directly on Windows
-
-Install Python 3, then double-click:
+Create a new Vercel project from this repository and configure:
 
 ```text
-windows_app\build_windows.bat
+SECRET_KEY=<new random secret for signed owner sessions>
+LICENSE_ADMIN_USERNAME=<one fixed owner username>
+LICENSE_ADMIN_PASSWORD=<one fixed owner password>
+OWNER_TOKEN_MAX_AGE=2592000
+INVENTORY_API_URL=https://saiko-inventory.vercel.app
+LICENSING_INTEGRATION_KEY=<same random integration key used by inventory Vercel>
 ```
 
-The portable application will be created at:
+Do not add `DATABASE_URL`, Neon variables, or run `schema.sql` in this project.
+
+After deployment, verify `https://YOUR-LICENCE-PROJECT.vercel.app/api/health`
+returns `{"status":"ok"}`.
+
+## Configure the connection in inventory
+
+The inventory Vercel project needs only the matching machine key:
 
 ```text
-windows_app\dist\SaikoLicenceControl.exe
+LICENSING_INTEGRATION_KEY=<same value as the licence Vercel project>
 ```
 
-## Use the application
+The owner username/password belong only to this licence project. They are not
+configured in inventory.
 
-1. Run `SaikoLicenceControl.exe`.
-2. Enter the fixed owner username.
-3. Enter the fixed owner password.
-4. Activate or pause inventory, change the total seat limit, or update the
-   paused message.
+## Build the native Windows application
 
-The application requires internet access to reach Saiko Inventory. It stores a
-signed login session for up to 30 days, but stores neither the owner password nor
-any Neon credentials.
+1. In this GitHub repository, open **Settings → Secrets and variables → Actions
+   → Variables**.
+2. Create `LICENCE_API_URL` with the final licence Vercel URL.
+3. Open **Actions → Build Windows Licence App → Run workflow**.
+4. Download the `SaikoLicenceControl-Windows` artifact.
+5. Extract `SaikoLicenceControl.exe` onto the dedicated Windows device.
 
-Windows may show a SmartScreen warning because the EXE is not commercially code
-signed. Choose **More info → Run anyway** only for an EXE produced by your own
-GitHub workflow.
+The build inserts the service URL into the EXE. The user sees only owner username
+and password when signing in.
+
+To build directly on Windows, first update `windows_app/backend_config.py` with
+the final licence Vercel URL, then run `windows_app/build_windows.bat`.
+
+## Security boundary
+
+- Owner credentials exist only in the licence Vercel environment.
+- Neon credentials exist only in the inventory Vercel environment.
+- The private integration key exists in both Vercel projects but is never stored
+  in the Windows application.
+- Licence changes are validated and written by inventory, not by the licence
+  service.

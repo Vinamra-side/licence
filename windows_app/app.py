@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 
 
 APP_NAME = "Saiko Licence Control"
+INVENTORY_API_URL = "https://saiko-inventory.vercel.app"
 CONFIG_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SaikoLicenceControl"
 CONFIG_FILE = CONFIG_DIR / "session.json"
 
@@ -60,9 +61,9 @@ class ApiClient:
                 message = None
             raise ApiError(message or f"Server returned error {exc.code}.") from exc
         except URLError as exc:
-            raise ApiError("Cannot reach the Vercel licence backend. Check the URL and internet connection.") from exc
+            raise ApiError("Cannot reach Saiko Inventory. Check the internet connection.") from exc
         except (TimeoutError, json.JSONDecodeError) as exc:
-            raise ApiError("The licence backend returned an invalid or delayed response.") from exc
+            raise ApiError("Saiko Inventory returned an invalid or delayed response.") from exc
 
 
 class LicenceApp:
@@ -76,7 +77,7 @@ class LicenceApp:
         self.client = None
         self._set_icon()
         self._configure_style()
-        if self.settings.get("backend_url") and self.settings.get("token"):
+        if self.settings.get("token"):
             self.show_control()
             self.refresh()
         else:
@@ -129,10 +130,6 @@ class LicenceApp:
 
         form = ttk.Frame(card, style="Card.TFrame")
         form.pack(fill="x")
-        ttk.Label(form, text="Vercel backend URL", style="Card.TLabel").pack(anchor="w")
-        self.backend_entry = ttk.Entry(form)
-        self.backend_entry.insert(0, self.settings.get("backend_url", "https://your-licence-backend.vercel.app"))
-        self.backend_entry.pack(fill="x", pady=(5, 15))
         ttk.Label(form, text="Owner login ID", style="Card.TLabel").pack(anchor="w")
         self.username_entry = ttk.Entry(form)
         self.username_entry.pack(fill="x", pady=(5, 15))
@@ -147,27 +144,25 @@ class LicenceApp:
         self.username_entry.focus_set()
 
     def login(self):
-        backend = self.backend_entry.get().strip().rstrip("/")
         username = self.username_entry.get().strip()
         password = self.password_entry.get()
-        if not backend.startswith(("https://", "http://127.0.0.1", "http://localhost")):
-            messagebox.showerror(APP_NAME, "Enter a secure HTTPS Vercel backend URL.")
-            return
         if not username or not password:
             messagebox.showerror(APP_NAME, "Enter the owner login ID and password.")
             return
         self.login_button.state(["disabled"])
         self.login_status.configure(text="Signing in…")
-        client = ApiClient(backend)
+        client = ApiClient(INVENTORY_API_URL)
 
         def task():
-            return client.request("POST", "/api/login", {"username": username, "password": password})
+            return client.request(
+                "POST", "/api/license-owner/login", {"username": username, "password": password}
+            )
 
         def success(data):
             token = data.get("token")
             if not token:
                 raise ApiError("The backend did not return a login session.")
-            self.settings = {"backend_url": backend, "token": token}
+            self.settings = {"token": token}
             save_settings(self.settings)
             self.password_entry.delete(0, "end")
             self.show_control()
@@ -177,7 +172,7 @@ class LicenceApp:
 
     def show_control(self):
         self.clear()
-        self.client = ApiClient(self.settings["backend_url"], self.settings["token"])
+        self.client = ApiClient(INVENTORY_API_URL, self.settings["token"])
         card = self.card()
         header = ttk.Frame(card, style="Card.TFrame")
         header.pack(fill="x")
@@ -216,7 +211,7 @@ class LicenceApp:
             self.action_status.configure(text="Licence is up to date.")
 
         self.run_async(
-            lambda: self.client.request("GET", "/api/license"),
+            lambda: self.client.request("GET", "/api/license-owner/license"),
             success,
             lambda: self.refresh_button.state(["!disabled"]),
         )
@@ -252,7 +247,7 @@ class LicenceApp:
             self.action_status.configure(text="Licence settings saved immediately.")
 
         self.run_async(
-            lambda: self.client.request("PUT", "/api/license", payload),
+            lambda: self.client.request("PUT", "/api/license-owner/license", payload),
             success,
             lambda: self.save_button.state(["!disabled"]),
         )

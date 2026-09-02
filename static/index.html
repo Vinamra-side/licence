@@ -1,4 +1,55 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b0d11"><link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/static/app.css"><title>Saiko Licence Control</title></head><body>
-<section id="login" class="login"><div class="brand"><b>▣</b> Saiko Licensing</div><h1>Welcome back</h1><p class="muted">Sign in to manage application access.</p><form id="loginForm"><label>Owner login ID</label><input id="username" required><label>Password</label><input id="password" type="password" required><button>Sign in</button></form><p id="loginError" class="muted"></p></section>
-<div id="app" class="shell hidden"><aside class="side"><div class="brand"><b>▣</b> Saiko</div><div class="nav active">▦ &nbsp; Dashboard</div><div class="nav">▣ &nbsp; Licence</div><div class="nav">↻ &nbsp; Updates</div></aside><main class="main"><header class="top"><div><h1>Licence Dashboard</h1><span class="muted">Monitor access and seats.</span></div><button id="logout">Sign out</button></header><section class="cards"><div class="card"><span class="muted">Active seats</span><div id="active" class="value">—</div></div><div class="card"><span class="muted">Available seats</span><div id="available" class="value">—</div></div><div class="card"><span class="muted">Licence status</span><div id="status" class="value">—</div></div></section><section class="grid"><div class="panel"><h2>Active Licence Monitoring</h2><div class="row muted"><span>Application</span><span>Status</span><span>Seats</span></div><div class="row"><span>Saiko Inventory</span><span id="rowStatus">—</span><span id="seats">—</span></div></div><form id="licenceForm" class="panel"><h2>Licence settings</h2><label><input id="enabled" type="checkbox" style="width:auto"> Application active</label><label>Seat limit</label><input id="limit" type="number" min="1" required><label>Pause message</label><textarea id="note"></textarea><button>Save licence</button><p id="saved" class="muted"></p></form></section></main></div>
-<script src="/static/app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b0d11">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/static/app.css">
+  <title>Licence Control</title>
+</head>
+<body>
+  <section id="login" class="login">
+    <div class="product-name">Licence Control</div>
+    <h1>Welcome back</h1>
+    <p class="muted">Sign in to manage application access.</p>
+    <form id="loginForm">
+      <label>Owner login ID</label><input id="username" required>
+      <label>Password</label><input id="password" type="password" required>
+      <button>Sign in</button>
+    </form>
+    <p id="loginError" class="muted"></p>
+  </section>
+  <div id="app" class="shell hidden">
+    <aside class="side">
+      <div class="product-name">Licence Control</div>
+      <nav aria-label="Licence navigation">
+        <button class="nav active" data-view="dashboard">Dashboard</button>
+        <button class="nav" data-view="licence">Licence</button>
+        <button class="nav" data-view="updates">Updates</button>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="top">
+        <div><h1 id="pageTitle">Licence Dashboard</h1><span id="pageSubtitle" class="muted">Monitor access and seats.</span></div>
+        <button id="logout">Sign out</button>
+      </header>
+      <section class="view" data-page="dashboard">
+        <div class="cards">
+          <div class="card"><span class="muted">Active seats</span><div id="active" class="value">-</div></div>
+          <div class="card"><span class="muted">Available seats</span><div id="available" class="value">-</div></div>
+          <div class="card"><span class="muted">Licence status</span><div id="status" class="value">-</div></div>
+        </div>
+        <div class="panel"><h2>Active Licence Monitoring</h2><div class="row muted"><span>Application</span><span>Status</span><span>Seats</span></div><div class="row"><span>Inventory application</span><span id="rowStatus">-</span><span id="seats">-</span></div></div>
+      </section>
+      <section class="view hidden" data-page="licence">
+        <form id="licenceForm" class="panel form-panel"><h2>Licence settings</h2><label class="check"><input id="enabled" type="checkbox"> Application active</label><label>Seat limit</label><input id="limit" type="number" min="1" required><label>Pause message</label><textarea id="note"></textarea><button>Save licence</button><p id="saved" class="muted"></p></form>
+      </section>
+      <section class="view hidden" data-page="updates">
+        <div class="panel"><h2>Application updates</h2><p>The licence interface is delivered securely from the deployed service.</p><p class="muted">When a new deployment is ready, an update notice appears. Select Update now to reload the latest version without reinstalling this Windows application.</p><button id="checkUpdates" type="button">Check for updates</button><p id="updateStatus" class="muted"></p></div>
+      </section>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

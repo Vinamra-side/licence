@@ -1,5 +1,5 @@
-const CACHE="licence-control-v3";
-const FILES=["/","/static/app.css","/static/app.js"];
+const CACHE="licence-control-v4";
+const FILES=["/","/static/app.css","/static/app.js","/static/licence-control-icon.png"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES))));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k))))).then(()=>self.clients.claim()));
 self.addEventListener("message",e=>{if(e.data&&e.data.type==="SKIP_WAITING")self.skipWaiting();});

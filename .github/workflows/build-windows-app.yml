@@ -25,11 +25,15 @@ jobs:
           "LICENCE_API_URL = `"$url`"" | Set-Content windows_app/backend_config.py
       - name: Install build tools
         run: python -m pip install -r windows_app/requirements-build.txt
+      - name: Create Windows icon
+        run: python windows_app/make_icon.py
       - name: Build EXE
         working-directory: windows_app
         run: >-
           python -m PyInstaller --noconfirm --clean --onefile --windowed
           --name InventoryLicenceControl
+          --icon assets/app-icon.ico
+          --add-data "assets/app-icon.ico;assets"
           app.py
       - name: Upload EXE
         uses: actions/upload-artifact@v4

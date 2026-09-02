@@ -10,7 +10,7 @@
 </head>
 <body>
   <section id="login" class="login">
-    <div class="product-name">Licence Control</div>
+    <div class="product-name"><img src="/static/licence-control-icon.png" alt="">Licence Control</div>
     <h1>Welcome back</h1>
     <p class="muted">Sign in to manage application access.</p>
     <form id="loginForm">
@@ -22,7 +22,7 @@
   </section>
   <div id="app" class="shell hidden">
     <aside class="side">
-      <div class="product-name">Licence Control</div>
+      <div class="product-name"><img src="/static/licence-control-icon.png" alt="">Licence Control</div>
       <nav aria-label="Licence navigation">
         <button class="nav active" data-view="dashboard">Dashboard</button>
         <button class="nav" data-view="licence">Licence</button>
@@ -32,13 +32,13 @@
     <main class="main">
       <header class="top">
         <div><h1 id="pageTitle">Licence Dashboard</h1><span id="pageSubtitle" class="muted">Monitor access and seats.</span></div>
-        <div class="header-actions"><span class="owner-label">Owner</span><button id="updateAction" class="update-action hidden" type="button">Update available</button><button id="logout">Sign out</button></div>
+        <div class="header-actions"><span id="connectionStatus" class="connection-status">Connecting</span><span class="owner-label">Owner</span><button id="refresh" class="secondary" type="button">Refresh</button><button id="updateAction" class="update-action hidden" type="button">Update available</button><button id="logout">Sign out</button></div>
       </header>
       <section class="view" data-page="dashboard">
         <div class="cards">
           <div class="card"><span class="muted">Active seats</span><div id="active" class="value">-</div></div>
           <div class="card"><span class="muted">Available seats</span><div id="available" class="value">-</div></div>
-          <div class="card"><span class="muted">Licence status</span><div id="status" class="value">-</div></div>
+          <div class="card"><span class="muted">Licence status</span><div id="status" class="value">-</div><small id="lastSync" class="muted">Not synced</small></div>
         </div>
         <div class="panel"><h2>Active Licence Monitoring</h2><div class="row muted"><span>Application</span><span>Status</span><span>Seats</span></div><div class="row"><span>Inventory application</span><span id="rowStatus">-</span><span id="seats">-</span></div></div>
       </section>

@@ -2,12 +2,17 @@ const $ = (selector) => document.querySelector(selector);
 let token = localStorage.getItem("licence-owner-token") || "";
 let registration = null;
 let waitingWorker = null;
+let dirty = false;
 
 async function api(path, options = {}) {
   options.headers = {"Content-Type": "application/json", ...(token ? {Authorization: `Bearer ${token}`} : {})};
   const response = await fetch(path, options);
   const data = await response.json();
-  if (!response.ok) throw Error(data.error || "Request failed");
+  if (!response.ok) {
+    const error = Error(data.error || "Request failed");
+    error.status = response.status;
+    throw error;
+  }
   return data;
 }
 
@@ -32,6 +37,8 @@ function showApp() {
 }
 
 async function loadLicence() {
+  $("#connectionStatus").textContent = "Connecting";
+  $("#connectionStatus").classList.remove("offline");
   try {
     const data = await api("/api/license");
     const seats = data.seats;
@@ -43,9 +50,17 @@ async function loadLicence() {
     $("#enabled").checked = data.is_active;
     $("#limit").value = data.max_users;
     $("#note").value = data.note || "";
+    $("#lastSync").textContent = `Last synced ${new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}`;
+    $("#connectionStatus").textContent = "Connected";
+    dirty = false;
   } catch (error) {
-    localStorage.removeItem("licence-owner-token");
-    location.reload();
+    if (error.status === 401) {
+      localStorage.removeItem("licence-owner-token");
+      location.reload();
+      return;
+    }
+    $("#connectionStatus").textContent = "Connection unavailable";
+    $("#connectionStatus").classList.add("offline");
   }
 }
 
@@ -61,14 +76,23 @@ $("#loginForm").addEventListener("submit", async (event) => {
 
 $("#licenceForm").addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!$("#enabled").checked && !confirm("Pause access to the inventory application for all users?")) return;
+  const saveButton = event.submitter;
+  saveButton.classList.add("saving");
+  saveButton.textContent = "Saving...";
   try {
     await api("/api/license", {method: "PUT", body: JSON.stringify({is_active: $("#enabled").checked, max_users: Number($("#limit").value), note: $("#note").value})});
     $("#saved").textContent = "Saved and applied immediately.";
     await loadLicence();
   } catch (error) { $("#saved").textContent = error.message; }
+  finally { saveButton.classList.remove("saving"); saveButton.textContent = "Save licence"; }
 });
 
+$("#licenceForm").addEventListener("input", () => { dirty = true; $("#saved").textContent = "Unsaved changes"; });
+window.addEventListener("beforeunload", (event) => { if (dirty) { event.preventDefault(); event.returnValue = ""; } });
+
 $("#logout").addEventListener("click", () => { localStorage.removeItem("licence-owner-token"); location.reload(); });
+$("#refresh").addEventListener("click", loadLicence);
 $("#checkUpdates").addEventListener("click", async () => {
   $("#updateStatus").textContent = "Checking for updates...";
   if (registration) await registration.update();

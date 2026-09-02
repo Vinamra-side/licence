@@ -1,6 +1,7 @@
 const $ = (selector) => document.querySelector(selector);
 let token = localStorage.getItem("licence-owner-token") || "";
 let registration = null;
+let waitingWorker = null;
 
 async function api(path, options = {}) {
   options.headers = {"Content-Type": "application/json", ...(token ? {Authorization: `Bearer ${token}`} : {})};
@@ -73,6 +74,9 @@ $("#checkUpdates").addEventListener("click", async () => {
   if (registration) await registration.update();
   $("#updateStatus").textContent = registration && registration.waiting ? "An update is ready." : "This application is up to date.";
 });
+$("#updateAction").addEventListener("click", () => {
+  if (waitingWorker) waitingWorker.postMessage({type: "SKIP_WAITING"});
+});
 if (token) showApp();
 
 if ("serviceWorker" in navigator) addEventListener("load", () => {
@@ -81,6 +85,8 @@ if ("serviceWorker" in navigator) addEventListener("load", () => {
     registration = value;
     const prompt = (worker) => {
       if (!worker || document.querySelector(".toast")) return;
+      waitingWorker = worker;
+      $("#updateAction").classList.remove("hidden");
       const toast = document.createElement("div");
       toast.className = "toast";
       toast.innerHTML = '<span><b>Licence app update available</b><br><small>Reload to apply it without reinstalling.</small></span><button>Update now</button>';

@@ -46,6 +46,9 @@ configured in inventory.
 
 ## Build the native Windows application
 
+The executable is a WebView2 desktop shell around the deployed licence app.
+Normal interface updates arrive from Vercel without replacing the executable.
+
 1. In this GitHub repository, open **Settings → Secrets and variables → Actions
    → Variables**.
 2. Create `LICENCE_API_URL` with the final licence Vercel URL.
